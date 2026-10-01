@@ -48,10 +48,10 @@ if logo_html:
     st.markdown(logo_html, unsafe_allow_html=True)
 
 # 2. Сарлавҳа ва корпоратив матнлар
-st.markdown("<h2 style='text-align: center; margin-top: 0;'>Audio va video transkripsiya</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; margin-top: 0;'>Audio va video transkripsiya. Version 1.9</h2>", unsafe_allow_html=True)
 st.markdown(
     "<p style='text-align: center; color: #4A90E2; font-weight: 600; margin-bottom: 5px;'>"
-    "Dastur muallifi: Botir Gʻofurov</p>", 
+    "(c) Botir Gʻofurov</p>", 
     unsafe_allow_html=True
 )
 st.info(
