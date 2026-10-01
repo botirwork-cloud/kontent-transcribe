@@ -1,11 +1,12 @@
 import os
+import io
+import time
 import base64
 import tempfile
 import subprocess
 from dotenv import load_dotenv
 import streamlit as st
 from google import genai
-import io
 from docx import Document
 
 # Созламалар
@@ -25,7 +26,8 @@ st.set_page_config(
     layout="centered"
 )
 
-# Видео логотипни база64 га айлантириб кўрсатиш
+# Видео логотипни хотирада кэшлаш (қотиб қолишни тўхтатади)
+@st.cache_data
 def get_video_html(video_path):
     if os.path.exists(video_path):
         with open(video_path, "rb") as f:
@@ -40,7 +42,7 @@ def get_video_html(video_path):
         """
     return ""
 
-# 1. Логотип видеосини чиқариш
+# 1. Логотип видеоси
 logo_html = get_video_html("video.mp4")
 if logo_html:
     st.markdown(logo_html, unsafe_allow_html=True)
@@ -102,7 +104,6 @@ if uploaded_file is not None:
         uploaded_cloud_file = None
         transcribed_text = ""
 
-        # Жараён ҳолатини кўрсатиб туриш
         with st.status("Ishlanmoqda, iltimos kuting...", expanded=True) as status:
             try:
                 # 4.1. Видео бўлса аудио ажратиш
@@ -117,10 +118,19 @@ if uploaded_file is not None:
                     subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
                     audio_path = temp_extracted_audio
 
-                status.update(label="✨ Audio qayta ishlanmoqda...")
+                status.update(label="✨ Audio serverga yuklanmoqda...")
                 uploaded_cloud_file = gemini_client.files.upload(file=audio_path)
 
-                # Prompt шакллантириш
+                # Файл булутда ACTIVE бўлишини кутиш
+                status.update(label="⏳ Fayl tahlilga tayyorlanmoqda...")
+                while uploaded_cloud_file.state.name == "PROCESSING":
+                    time.sleep(2)
+                    uploaded_cloud_file = gemini_client.files.get(name=uploaded_cloud_file.name)
+
+                if uploaded_cloud_file.state.name != "ACTIVE":
+                    raise Exception("Faylni yuklashda xatolik yuz berdi.")
+
+                # Prompt
                 if lang_choice == "Oʻzbek":
                     script_prompt = (
                         "Matnni faqat LOTIN alifbosida yozing." 
@@ -154,7 +164,6 @@ if uploaded_file is not None:
                 )
                 transcribed_text = gemini_response.text
 
-                # Жараён тугагач, статус блокини ёпиб, муваффақиятли деб белгилаймиз
                 status.update(label="✅ Jarayon yakunlandi. Matn tayyor!", state="complete", expanded=False)
 
             except Exception as e:
@@ -174,7 +183,6 @@ if uploaded_file is not None:
                         except Exception:
                             pass
 
-        # ЯНГИ ҲОЛАТИ (Фақат Word .docx):
         if transcribed_text:
             st.success("✅ Matn tayyor boʻldi!")
             st.text_area(
@@ -183,7 +191,6 @@ if uploaded_file is not None:
                 height=350
             )
 
-            # Word (.docx) hujjatini yaratish
             doc = Document()
             for paragraph in transcribed_text.split("\n"):
                 if paragraph.strip():
@@ -193,7 +200,6 @@ if uploaded_file is not None:
             doc.save(docx_buffer)
             docx_buffer.seek(0)
 
-            # Faqat Word yuklab olish tugmasi
             st.download_button(
                 label="📄 Word (.docx) yuklab olish",
                 data=docx_buffer,
