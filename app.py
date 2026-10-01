@@ -8,7 +8,14 @@ from google import genai
 
 # Созламалар
 load_dotenv()
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# Калитни аввал Streamlit Secrets'дан, агар у ерда бўлмаса .env дан қидиради
+GEMINI_API_KEY = (
+    st.secrets.get("GEMINI_API_KEY") 
+    if "GEMINI_API_KEY" in getattr(st, "secrets", {}) 
+    else os.getenv("GEMINI_API_KEY")
+)
+
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
 st.set_page_config(
