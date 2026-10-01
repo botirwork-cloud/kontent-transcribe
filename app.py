@@ -5,6 +5,8 @@ import subprocess
 from dotenv import load_dotenv
 import streamlit as st
 from google import genai
+import io
+from docx import Document
 
 # Созламалар
 load_dotenv()
@@ -172,19 +174,31 @@ if uploaded_file is not None:
                         except Exception:
                             pass
 
-        # ЭНДИ МАТН СТАТУСДАН ТАШҚАРИДА — ДАРҲОЛ КЎРИНИБ ТУРАДИ
+        # ЯНГИ ҲОЛАТИ (Фақат Word .docx):
         if transcribed_text:
-            st.success("✅ Matn tayyor boʻldi:")
+            st.success("✅ Matn tayyor boʻldi!")
             st.text_area(
                 label="Transkripsiya qilingan matn (uni tahrir qilishingiz yoki nusxalab olishingiz mumkin):",
                 value=transcribed_text,
-                height=400
+                height=350
             )
 
+            # Word (.docx) hujjatini yaratish
+            doc = Document()
+            for paragraph in transcribed_text.split("\n"):
+                if paragraph.strip():
+                    doc.add_paragraph(paragraph)
+
+            docx_buffer = io.BytesIO()
+            doc.save(docx_buffer)
+            docx_buffer.seek(0)
+
+            # Faqat Word yuklab olish tugmasi
             st.download_button(
-                label="💾 Matnni yuklab olish (.txt)",
-                data=transcribed_text,
-                file_name="transcription.txt",
-                mime="text/plain",
+                label="📄 Word (.docx) yuklab olish",
+                data=docx_buffer,
+                file_name="transcription.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                type="primary",
                 use_container_width=True
             )
