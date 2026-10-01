@@ -9,7 +9,6 @@ from google import genai
 # Созламалар
 load_dotenv()
 
-# Калитни аввал Streamlit Secrets'дан, агар у ерда бўлмаса .env дан қидиради
 GEMINI_API_KEY = (
     st.secrets.get("GEMINI_API_KEY") 
     if "GEMINI_API_KEY" in getattr(st, "secrets", {}) 
@@ -19,12 +18,12 @@ GEMINI_API_KEY = (
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
 st.set_page_config(
-    page_title="Kontent Markazi - Транскрипция",
+    page_title="Kontent Markazi - transcription",
     page_icon="🎙",
     layout="centered"
 )
 
-# Видео логотипни база64 га айлантириб, браузерда тўғри кўрсатиш
+# Видео логотипни база64 га айлантириб кўрсатиш
 def get_video_html(video_path):
     if os.path.exists(video_path):
         with open(video_path, "rb") as f:
@@ -39,13 +38,13 @@ def get_video_html(video_path):
         """
     return ""
 
-# 1. Логотип видеосини чиқариш (video.mp4 шу папкада бўлиши керак)
+# 1. Логотип видеосини чиқариш
 logo_html = get_video_html("video.mp4")
 if logo_html:
     st.markdown(logo_html, unsafe_allow_html=True)
 
 # 2. Сарлавҳа ва корпоратив матнлар
-st.markdown("<h2 style='text-align: center; margin-top: 0;'>Аудио ва Видео Транскрипция</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; margin-top: 0;'>Audio va video transkripsiya</h2>", unsafe_allow_html=True)
 st.markdown(
     "<p style='text-align: center; color: #4A90E2; font-weight: 600; margin-bottom: 5px;'>"
     "Dastur muallifi: Botir Gʻofurov</p>", 
@@ -58,54 +57,56 @@ st.info(
 
 # 3. Файл юклаш
 uploaded_file = st.file_uploader(
-    "Видео ёки аудио файлни юкланг:",
+    "Video yoki audio faylni yuklang:",
     type=["mp3", "wav", "m4a", "ogg", "mp4", "mkv", "avi", "mov"]
 )
 
 if uploaded_file is not None:
-    st.success(f"Файл танланди: **{uploaded_file.name}** ({uploaded_file.size / (1024*1024):.1f} MB)")
+    st.success(f"Fayl tanlandi: **{uploaded_file.name}** ({uploaded_file.size / (1024*1024):.1f} MB)")
     
-    st.subheader("Созламалар")
+    st.subheader("Sozlamalar")
     lang_choice = st.radio(
-        "Транскрипция тилини танланг:",
-        options=["Ўзбек", "Рус", "Инглиз"],
+        "Transkripsiya tilini tanlang:",
+        options=["Oʻzbek", "Rus", "Ingliz"],
         horizontal=True
     )
 
     script_choice = None
-    if lang_choice == "Ўзбек":
+    if lang_choice == "Oʻzbek":
         script_choice = st.radio(
-            "Алифбони танланг:",
-            options=["Лотин", "Кирилл"],
+            "Matn qaysi alifboda boʻlsin?:",
+            options=["Lotin", "Кирилл"],
             horizontal=True
         )
 
     col1, col2 = st.columns([1, 1])
     with col1:
-        start_button = st.button("▶️ Ишни бошлаш", type="primary", use_container_width=True)
+        start_button = st.button("▶️ Ishni boshlash", type="primary", use_container_width=True)
     with col2:
-        cancel_button = st.button("❌ Бекор қилиш", use_container_width=True)
+        cancel_button = st.button("❌ Bekor qilish", use_container_width=True)
 
     if cancel_button:
-        st.warning("Амалиёт бекор қилинди.")
+        st.warning("Amaliyot bekor qilindi.")
         st.rerun()
 
     if start_button:
-        with st.status("Жараён кетмоқда...", expanded=True) as status:
-            file_suffix = os.path.splitext(uploaded_file.name)[1].lower()
-            with tempfile.NamedTemporaryFile(delete=False, suffix=file_suffix) as tmp_file:
-                tmp_file.write(uploaded_file.read())
-                temp_input_path = tmp_file.name
+        file_suffix = os.path.splitext(uploaded_file.name)[1].lower()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_suffix) as tmp_file:
+            tmp_file.write(uploaded_file.read())
+            temp_input_path = tmp_file.name
 
-            audio_path = temp_input_path
-            temp_extracted_audio = None
-            uploaded_cloud_file = None
+        audio_path = temp_input_path
+        temp_extracted_audio = None
+        uploaded_cloud_file = None
+        transcribed_text = ""
 
+        # Жараён ҳолатини кўрсатиб туриш
+        with st.status("Ishlanmoqda, iltimos kuting...", expanded=True) as status:
             try:
-                # Видео бўлса, FFmpeg орқали аудио ажратиб олиш
+                # 4.1. Видео бўлса аудио ажратиш
                 video_extensions = [".mp4", ".mkv", ".avi", ".mov"]
                 if file_suffix in video_extensions:
-                    status.update(label="🎬 Видеодан аудио ажратилмоқда (FFmpeg)...")
+                    status.update(label="🎬 Videodan audio ajratilmoqda...")
                     temp_extracted_audio = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
                     cmd = [
                         "ffmpeg", "-y", "-i", temp_input_path,
@@ -114,14 +115,14 @@ if uploaded_file is not None:
                     subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
                     audio_path = temp_extracted_audio
 
-                status.update(label="✨ Аудио Gemini сунъий интеллект тизимига юкланмоқда...")
+                status.update(label="✨ Audio qayta ishlanmoqda...")
                 uploaded_cloud_file = gemini_client.files.upload(file=audio_path)
 
-                # Тил ва имло бўйича аниқ кўрсатма (Prompt)
-                if lang_choice == "Ўзбек":
+                # Prompt шакллантириш
+                if lang_choice == "Oʻzbek":
                     script_prompt = (
                         "Matnni faqat LOTIN alifbosida yozing." 
-                        if script_choice == "Лотин" 
+                        if script_choice == "Lotin" 
                         else "Матнни фақат КИРИЛЛ алифбосида ёзинг."
                     )
                     prompt = (
@@ -129,7 +130,7 @@ if uploaded_file is not None:
                         f"{script_prompt} Имло қоидаларига қатъий амал қил. "
                         f"Ортиқча кириш ва якуний гапларсиз, фақат матнни қайтар."
                     )
-                elif lang_choice == "Рус":
+                elif lang_choice == "Rus":
                     prompt = (
                         "Сделай максимально точную транскрипцию русской речи из этого аудио. "
                         "Строго соблюдай правила русской орфографии и пунктуации. "
@@ -137,36 +138,26 @@ if uploaded_file is not None:
                         "и термины нерусского происхождения пиши на языке оригинала в латинице (например: Google, YouTube, Telegram, Zoom, iPhone). "
                         "Выведи только полученный текст без лишних вступительных слов и комментариев."
                     )
-                else:  # Инглиз
+                else:  # Ingliz
                     prompt = (
                         "Transcribe the spoken English in this audio verbatim with high accuracy. "
                         "Ensure correct spelling, capitalization, and punctuation. "
                         "Output only the transcribed text without any greetings or additional comments."
                     )
 
-                status.update(label="🧠 Нутқ таҳлил қилинмоқда ва имло тўғриланмоқда...")
+                status.update(label="🧠 Matn tahlil qilinmoqda va imlo tekshirilmoqda...")
                 gemini_response = gemini_client.models.generate_content(
                     model="gemini-2.5-flash",
                     contents=[uploaded_cloud_file, prompt]
                 )
                 transcribed_text = gemini_response.text
 
-                status.update(label="✅ Муваффақиятли тайёр бўлди!", state="complete", expanded=False)
-
-                st.subheader("📝 Транскрипция матни:")
-                st.text_area("Матн майдони:", value=transcribed_text, height=350)
-
-                st.download_button(
-                    label="💾 Матнни юклаб олиш (.txt)",
-                    data=transcribed_text,
-                    file_name="transcription.txt",
-                    mime="text/plain",
-                    use_container_width=True
-                )
+                # Жараён тугагач, статус блокини ёпиб, муваффақиятли деб белгилаймиз
+                status.update(label="✅ Jarayon yakunlandi. Matn tayyor!", state="complete", expanded=False)
 
             except Exception as e:
-                status.update(label="❌ Хатолик юз берди", state="error")
-                st.error(f"Хатолик тафсилоти: {str(e)}")
+                status.update(label="❌ Xatolik yuz berdi", state="error")
+                st.error(f"Xatolik tafsiloti: {str(e)}")
 
             finally:
                 if uploaded_cloud_file:
@@ -180,3 +171,20 @@ if uploaded_file is not None:
                             os.remove(p)
                         except Exception:
                             pass
+
+        # ЭНДИ МАТН СТАТУСДАН ТАШҚАРИДА — ДАРҲОЛ КЎРИНИБ ТУРАДИ
+        if transcribed_text:
+            st.success("✅ Matn tayyor boʻldi:")
+            st.text_area(
+                label="Transkripsiya qilingan matn (uni tahrir qilishingiz yoki nusxalab olishingiz mumkin):",
+                value=transcribed_text,
+                height=400
+            )
+
+            st.download_button(
+                label="💾 Matnni yuklab olish (.txt)",
+                data=transcribed_text,
+                file_name="transcription.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
