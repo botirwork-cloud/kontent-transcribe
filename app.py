@@ -159,7 +159,7 @@ if uploaded_file is not None:
 
                 status.update(label="🧠 Matn tahlil qilinmoqda va imlo tekshirilmoqda...")
                 gemini_response = gemini_client.models.generate_content(
-                    model="gemini-2.5-flash",
+                    model="gemini-3.8-flash",
                     contents=[uploaded_cloud_file, prompt]
                 )
                 transcribed_text = gemini_response.text
