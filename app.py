@@ -158,10 +158,31 @@ if uploaded_file is not None:
                     )
 
                 status.update(label="🧠 Matn tahlil qilinmoqda va imlo tekshirilmoqda...")
-                gemini_response = gemini_client.models.generate_content(
-                    model="gemini-3.8-flash",
-                    contents=[uploaded_cloud_file, prompt]
-                )
+                from google.genai import errors
+                MODELS_TO_TRY = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-flash-latest"]
+                gemini_response = None
+                last_error = None
+                for model_name in MODELS_TO_TRY:
+                    for attempt in range(1, 3):
+                        try:
+                            status.update(label=f"🧠 Matn tahlil qilinmoqda ({model_name}, {attempt}-urinish)...")
+                            gemini_response = gemini_client.models.generate_content(
+                                model=model_name,
+                                contents=[uploaded_cloud_file, prompt],
+                                config={"thinking_config": {"thinking_level": "low"}}
+                            )
+                            break
+                        except (errors.ServerError, errors.ClientError) as e:
+                            last_error = e
+                            if e.code in (429, 503) and attempt < 2:
+                                status.update(label=f"⏳ Server band, 20 soniyadan keyin qayta urinaman...")
+                                time.sleep(20)
+                            else:
+                                break
+                    if gemini_response is not None:
+                        break
+                if gemini_response is None:
+                    raise Exception(f"Hech bir model javob bermadi. Oxirgi xato: {last_error}")
                 transcribed_text = gemini_response.text
 
                 status.update(label="✅ Jarayon yakunlandi. Matn tayyor!", state="complete", expanded=False)
