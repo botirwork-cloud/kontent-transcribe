@@ -159,9 +159,9 @@ if uploaded_file is not None:
 
                 status.update(label="🧠 Matn tahlil qilinmoqda va imlo tekshirilmoqda...")
                 from google.genai import errors
-                MODELS_TO_TRY = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-flash-latest"]
+                MODELS_TO_TRY = ["gemini-3.8-flash", "gemini-3.7-flash"]
                 gemini_response = None
-                last_error = None
+                all_errors = []
                 for model_name in MODELS_TO_TRY:
                     for attempt in range(1, 3):
                         try:
@@ -173,7 +173,7 @@ if uploaded_file is not None:
                             )
                             break
                         except (errors.ServerError, errors.ClientError) as e:
-                            last_error = e
+                            all_errors.append(f"{model_name}: {str(e)[:300]}")
                             if e.code in (429, 503) and attempt < 2:
                                 status.update(label=f"⏳ Server band, 20 soniyadan keyin qayta urinaman...")
                                 time.sleep(20)
@@ -182,7 +182,7 @@ if uploaded_file is not None:
                     if gemini_response is not None:
                         break
                 if gemini_response is None:
-                    raise Exception(f"Hech bir model javob bermadi. Oxirgi xato: {last_error}")
+                    raise Exception("Hech bir model javob bermadi:\n" + "\n".join(all_errors))
                 transcribed_text = gemini_response.text
 
                 status.update(label="✅ Jarayon yakunlandi. Matn tayyor!", state="complete", expanded=False)
